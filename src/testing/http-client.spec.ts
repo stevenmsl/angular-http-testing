@@ -1,4 +1,4 @@
-import { HttpClient, HttpHeaders } from "@angular/common/http";
+import { HttpClient, HttpHeaders, HttpErrorResponse } from "@angular/common/http";
 import { HttpClientTestingModule, HttpTestingController } from "@angular/common/http/testing"; 
 
 import { TestBed } from '@angular/core/testing';
@@ -94,5 +94,52 @@ describe('HttpClient testing', () => {
         requests[1].flush([testData[0]]);
         requests[2].flush(testData);
     });
+
+    it('can test for 404 error', () => {
+        const emsg = 'deliberate 404 error';
+
+        httpClient.get<Data[]>(testUrl).subscribe(
+            //fail the test if you received a response with no error
+            data => fail('should have failed with the 404 error'),
+            (error: HttpErrorResponse) => {
+                expect(error.status).toEqual(404, 'status');
+                expect(error.error).toEqual(emsg, 'message');
+            }
+        );
+
+        const req = httpTestingController.expectOne(testUrl);
+
+        //respond with mock error
+        req.flush(emsg, { status: 404, statusText: 'Not Found'});
+    });
+
+    it('can test for network error', () => {
+        const emsg = 'simulated network error';
+
+        httpClient.get<Data[]>(testUrl).subscribe(
+            data => fail('should have failed with the network error'),
+            (error: HttpErrorResponse) => {
+                expect(error.error.message).toEqual(emsg, 'message');    
+            }
+        );
+
+        const req = httpTestingController.expectOne(testUrl);
+
+        // Create mock ErrorEvent, raised when something goes wrong at the network level.
+        // Connection timeout, DNS error, offline, etc
+        const mockError = new ErrorEvent('Network error', {
+            message: emsg,
+            // The rest of this is optional and not used.
+            // Just showing that you could provide this too.
+            filename: 'HeroService.ts',
+            lineno: 42,
+            colno:21
+        });
+
+        //Respond with mock error
+        req.error(mockError);
+    });
+
+ 
 
 });
